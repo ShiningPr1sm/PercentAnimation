@@ -10,7 +10,7 @@ public class ConsoleProgressBar {
     public enum Position {
         /** Displays percentages to the left of the bar: {@code Message [50%] [████░░░░]} */
         LEFT,
-        /** Displays percentages to the right of the bar: {@code Message [████░░░░] 50%} */
+        /** Displays percentages to the right of the bar: {@code Message [████░░░░] [50%]} */
         RIGHT,
         /** Embeds percentages directly into the center of the bar: {@code Message [████ 50% ░░░░]} */
         CENTER
@@ -160,7 +160,7 @@ public class ConsoleProgressBar {
                 break;
 
             case RIGHT:
-                finalLine = message + " [" + barStr + "]" + percentageStr;
+                finalLine = message + " [" + barStr + "] [" + percentageStr.trim() + "]";
                 break;
 
             case CENTER:

@@ -17,15 +17,15 @@
 PercentAnimation solves the problem of boring, static terminal outputs in Java console applications. Instead of text walls, it provides a simple way to display real-time, visually appealing progress tracking. Built purely in Java without heavy external dependencies, it leverages ANSI escape codes to render smooth animations and vibrant color transitions directly in the terminal.
 
 ## Key Features
-* **Dynamic Gradients**: Smooth ANSI color transitions for progress percentages and console output.
-* **Console Spinners**: Easily manageable asynchronous loading animations for background tasks.
+* **Dynamic Gradients**: Smooth ANSI color transitions for progress percentages and console output;
+* **Console Spinners**: Easily manageable asynchronous loading animations for background tasks;
 * **Zero Dependencies**: Lightweight footprint, making it effortless to integrate into any Java project.
 
 ## Getting Started
 
 ### Prerequisites
-* **Java Development Kit**: JDK 21+
-* **Dependency Manager**: Maven (for dependency declaration)
+* JDK 21+
+* Maven (for dependency declaration)
 
 ### Download
 * You can download a `.jar` file directly from the Releases section, or include it via [Maven](https://central.sonatype.com/artifact/dev.shiningpr1sm/PercentAnimation):
@@ -39,4 +39,5 @@ PercentAnimation solves the problem of boring, static terminal outputs in Java c
 ```
 
 ### Acknowledgments
-If you find a bug, error, or typo, please submit a report in the Issues section. Thank you very much for using this lib!
+If you find a bug, error, or typo, please submit a report in the [Issues](https://github.com/ShiningPr1sm/PercentAnimation/issues) section. 
+Thank you very much for using this lib! <3

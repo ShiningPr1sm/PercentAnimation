@@ -33,6 +33,19 @@
         <url>https://github.com/shiningpr1sm/PercentAnimation/tree/main</url>
     </scm>
 
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>Central Portal</name>
+            <url>central://</url>
+        </repository>
+        <snapshotRepository>
+            <id>central</id>
+            <name>Central Portal</name>
+            <url>central://</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>

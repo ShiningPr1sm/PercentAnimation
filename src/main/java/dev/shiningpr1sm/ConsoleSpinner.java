@@ -3,8 +3,21 @@ package dev.shiningpr1sm;
 /**
  * A class to create and control threaded console activity indicators (spinners).
  * Runs completely in the background via a daemon thread with dynamic color-shifting frames.
+ *
+ * <p>Usage example:
+ * <pre>{@code
+ * ConsoleSpinner spinner = ConsoleSpinner.builder()
+ *     .style(Style.CLASSIC)
+ *     .position(Position.RIGHT)
+ *     .theme(ColorTheme.STANDARD)
+ *     .build();
+ *
+ * spinner.start("Loading configuration...");
+ * // ... do work ...
+ * spinner.stop();
+ * }</pre>
  */
-public class ConsoleSpinner implements Runnable {
+public class ConsoleSpinner implements Runnable, AutoCloseable {
 
     /** Position of the visual spinner frame relative to the tracked message string. */
     public enum Position {
@@ -39,7 +52,7 @@ public class ConsoleSpinner implements Runnable {
         /** Text sequence where individual letters illuminate sequentially. Perfect for legacy terminals like PowerShell. */
         TEXT_LOADING(new String[]{"lOADING", "LoADING", "LOaDING", "LOADiNG", "LOADInG", "LOADINg", "LOADING"}, 120, ColorTheme.PURPLE_PINK),
         /** Vertical scaling signal block structures. */
-        GROWING(new String[]{" ", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃"}, 90, ColorTheme.ORANGE_YELLOW);
+        GROWING(new String[]{" ", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2588", "\u2587", "\u2586", "\u2585", "\u2584", "\u2583"}, 90, ColorTheme.ORANGE_YELLOW);
 
         final String[] frames;
         final int delay;
@@ -52,44 +65,31 @@ public class ConsoleSpinner implements Runnable {
         }
     }
 
-    private static final String RESET = "\u001B[0m";
-
     private final Style style;
     private final Position position;
     private final ColorTheme theme;
 
     private volatile boolean running = false;
+    private volatile String message = "Loading...";
     private Thread workerThread;
-    private String message = "Loading...";
+    private String lastRenderedLine = "";
 
-    /**
-     * Constructs a spinner using default options:
-     * CLASSIC layout, right-aligned positioning, and the STANDARD auto-color assignment.
-     */
-    public ConsoleSpinner() {
-        this(Style.CLASSIC, Position.RIGHT, ColorTheme.STANDARD);
-    }
-
-    /**
-     * Constructs a spinner with a customized animation frame layout.
-     *
-     * @param style The desired animation format selection (e.g., Style.TEXT_LOADING).
-     */
-    public ConsoleSpinner(Style style) {
-        this(style, Position.RIGHT, ColorTheme.STANDARD);
-    }
-
-    /**
-     * Constructs a fully tailored background console spinner.
-     *
-     * @param style    The animation structure frame configuration (CLASSIC, DOTS, TEXT_LOADING, GROWING).
-     * @param position Layout placement indicating where the animation goes relative to the message (LEFT or RIGHT).
-     * @param theme    The coloration environment ruleset (STANDARD assigns appropriate colors automatically).
-     */
-    public ConsoleSpinner(Style style, Position position, ColorTheme theme) {
+    private ConsoleSpinner(Style style, Position position, ColorTheme theme) {
+        if (style.frames.length == 0) {
+            throw new IllegalArgumentException("Style frames must not be empty");
+        }
         this.style = style;
         this.position = position;
         this.theme = theme;
+    }
+
+    /**
+     * Creates a new builder for configuring a spinner.
+     *
+     * @return a new {@link Builder} instance.
+     */
+    public static Builder builder() {
+        return new Builder();
     }
 
     /**
@@ -98,7 +98,7 @@ public class ConsoleSpinner implements Runnable {
      *
      * @param msg The status phrase coupled with the animation loop (e.g., "Establishing secure tunnel...").
      */
-    public void start(String msg) {
+    public synchronized void start(String msg) {
         if (running) return;
 
         this.message = msg;
@@ -113,7 +113,7 @@ public class ConsoleSpinner implements Runnable {
      * Terminates background thread processing and fully sanitizes the console row text
      * to prevent artifact collisions with forthcoming output streams.
      */
-    public void stop() {
+    public synchronized void stop() {
         if (!running) return;
 
         running = false;
@@ -121,8 +121,27 @@ public class ConsoleSpinner implements Runnable {
             workerThread.interrupt();
         }
 
-        System.out.print("\r" + " ".repeat(message.length() + 20) + "\r");
+        int clearLength = lastRenderedLine.length() + 5;
+        System.out.print("\r" + " ".repeat(clearLength) + "\r");
         System.out.flush();
+    }
+
+    /**
+     * Returns whether the spinner is currently running.
+     *
+     * @return {@code true} if the spinner animation is active.
+     */
+    public boolean isRunning() {
+        return running;
+    }
+
+    /**
+     * Updates the spinner message while it is running.
+     *
+     * @param msg the new status message to display.
+     */
+    public void setMessage(String msg) {
+        this.message = msg;
     }
 
     @Override
@@ -136,13 +155,13 @@ public class ConsoleSpinner implements Runnable {
         }
 
         while (running) {
-            String colorCode = (activeTheme == ColorTheme.NONE) ? "" : getSpinnerColor(activeTheme, currentFrame, frames.length);
+            String colorCode = (activeTheme == ColorTheme.NONE) ? "" : AnsiColor.spinnerGradient(activeTheme, currentFrame, frames.length);
 
             String frameStr;
             if (style == Style.TEXT_LOADING) {
-                frameStr = colorCode + frames[currentFrame] + RESET;
+                frameStr = colorCode + frames[currentFrame] + AnsiColor.RESET;
             } else {
-                frameStr = "[" + colorCode + frames[currentFrame] + RESET + "]";
+                frameStr = "[" + colorCode + frames[currentFrame] + AnsiColor.RESET + "]";
             }
 
             String finalLine;
@@ -155,6 +174,8 @@ public class ConsoleSpinner implements Runnable {
                     finalLine = message + " " + frameStr;
                 }
             }
+
+            this.lastRenderedLine = finalLine;
 
             System.out.print("\r" + finalLine);
             System.out.flush();
@@ -170,31 +191,44 @@ public class ConsoleSpinner implements Runnable {
         }
     }
 
-    private String getSpinnerColor(ColorTheme theme, int frameIndex, int totalFrames) {
-        double ratio = (double) frameIndex / totalFrames;
-        int r = 0, g = 0, b = 0;
+    @Override
+    public void close() {
+        stop();
+    }
 
-        switch (theme) {
-            case BLUE:
-                g = (int) (100 + ratio * 155);
-                b = 255;
-                break;
-            case GREEN:
-                g = 255;
-                r = (int) (ratio * 100);
-                break;
-            case PURPLE_PINK:
-                r = (int) (150 + ratio * 105);
-                b = (int) (255 - ratio * 50);
-                break;
-            case ORANGE_YELLOW:
-                r = 255;
-                g = (int) (80 + ratio * 150);
-                break;
-            default:
-                return "";
+    /**
+     * Builder for constructing {@link ConsoleSpinner} instances with a fluent API.
+     */
+    public static final class Builder {
+        private Style style = Style.CLASSIC;
+        private Position position = Position.RIGHT;
+        private ColorTheme theme = ColorTheme.STANDARD;
+
+        private Builder() {
         }
 
-        return "\u001B[38;2;" + r + ";" + g + ";" + b + "m";
+        public Builder style(Style style) {
+            this.style = style;
+            return this;
+        }
+
+        public Builder position(Position position) {
+            this.position = position;
+            return this;
+        }
+
+        public Builder theme(ColorTheme theme) {
+            this.theme = theme;
+            return this;
+        }
+
+        /**
+         * Builds the spinner with the configured settings.
+         *
+         * @return a new {@link ConsoleSpinner} instance.
+         */
+        public ConsoleSpinner build() {
+            return new ConsoleSpinner(style, position, theme);
+        }
     }
 }
